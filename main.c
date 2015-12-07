@@ -17,22 +17,23 @@
 #include <sys/time.h>
 #include <time.h>
 
-#define KEY_ESCAPE            0x1B
-#define KEY_SPACE            0x20
+#define KEY_ESCAPE          0x1B    // Valor Hexadecimal da tecla ESC
+#define KEY_SPACE           0x20    // Valor Hexadecimal da tecla SPACE
 
-#define ROW                    13
-#define COL                    43
-#define N_MAX_BALLOONS        50
-#define N_MAX_BOMBS            20
+#define ROW                 13      // Total de linhas no mapa (com as bordas)
+#define COL                 43      // Total de colunas no mapa (com as bordas)
+#define N_MAX_BALLOONS      50      // Quantidade maxima de baloes no jogo
+#define N_MAX_BOMBS         20      // Quantidade maxima de bombas no jogo
 
-#define WALL_COLOR            1
-#define BOX_COLOR            2
-#define SPACE_COLOR            3
-#define BOMBERMAN_COLOR        4
-#define BALLOON_COLOR        5
-#define BOMB_COLOR            6
+#define WALL_COLOR          1
+#define BOX_COLOR           2
+#define SPACE_COLOR         3
+#define BOMBERMAN_COLOR     4
+#define BALLOON_COLOR       5
+#define BOMB_COLOR          6
 #define BEXPLOSION_COLOR    7
 
+// transforma as informações em um valor inteiro sem sinal
 const chtype chEXPLOSION = '~' | COLOR_PAIR(BOMB_COLOR) | A_BOLD | A_REVERSE;
 const chtype chBALLOON = '$' | COLOR_PAIR(BALLOON_COLOR) | A_BOLD;
 const chtype chBOMB = '*' | COLOR_PAIR(BOMB_COLOR) | A_BOLD;
@@ -51,26 +52,26 @@ typedef enum {
 typedef struct {
 	int line;
 	int column;
-	int stepsSameDir;
-	double delayMov;
-	bool alive;
-	bool dying;
+	int stepsSameDir; // quadros deslocados na mesma direção
+	double delayMov; // intervalo de tempo entre os movimentos
+	bool alive;    // esta vivo?
+	bool dying;    // esta morrendo?
 	struct timeval tic;
 	struct timeval tac;
-	direction_t dir;
+	direction_t dir; // sentido do deslocamento
 } balloon_t;
 
 typedef struct {
 	int line;
 	int column;
-	int powerExplosion;
-	int currentWaveSize;
-	double delayExplosion;
-	double speedExp;
-	bool activated;
-	bool blowingUp;
-	bool dirExplosion[5];
-	bool reserved;
+	int powerExplosion; // poder de destruição
+	int currentWaveSize; // tamanho da explosão
+	double delayExplosion; // tempo para a bomba explodir
+	double speedExp; // tempo para a onda de explosão percorrer o mapa
+	bool activated; // esta no mapa?
+	bool blowingUp; // esta detonando ?
+	bool dirExplosion[5]; // direção possível de deslocamento da explosão
+	bool reserved; // na reserva?
 	struct timeval tic;
 	struct timeval tac;
 } bomb_t;
@@ -78,12 +79,12 @@ typedef struct {
 typedef struct {
 	int line;
 	int column;
-	int score;
-	int lives;
-	double delayMov;
+	int score; // pontuação
+	int lives; // vidas
+	double delayMov; // tempo para o personagem poder se mover
 	struct timeval tic;
 	struct timeval tac;
-	direction_t dir;
+	direction_t dir; // direção de deslocamento
 } bomberman_t;
 
 int qtBalloon;
@@ -131,7 +132,11 @@ int probabilityMassFunction(const int n, const double weight[n]);
 
 void updateScoreboard(void);
 
+void updateHighScore(void);
+
 void helpBoard(void);
+
+void gameOver(void);
 
 void startExplosion(bomb_t *B);
 
@@ -144,7 +149,7 @@ int main(void) {
 	direction_t nextDir = eSTOP;
 
 
-	initscr();
+	initscr();    // inicia o modo ncurses
 	startScreenSettings();
 	startBomberman();
 	showMap();
@@ -164,30 +169,39 @@ int main(void) {
 	for (i = 0; i < qtBombs; i++)
 		bomb[i].reserved = true;
 
-	gettimeofday(&bomberman.tic, NULL);
+	gettimeofday(&bomberman.tic, NULL); // primeiro boot do personagem
 
+	// inicia o boot dos balões
 	for (i = 0; i < qtBalloon; i++)
 		gettimeofday(&(balloon[i].tic), NULL);
 
 	while ((bomberman.lives > 0) && !exitGame) {
+		// imprime o caractere do personagem na tela
 		mvaddch(bomberman.line, bomberman.column, chBOMBERMAN);
-		updateScoreboard();
-		gettimeofday(&bomberman.tac, NULL);
-		dTime = timeLapsed(bomberman.tic, bomberman.tac);
+		updateScoreboard(); // imprime o placar
+		gettimeofday(&bomberman.tac, NULL); // encerra o cronometro do pers.
+		dTime = timeLapsed(bomberman.tic, bomberman.tac); // calc. o tempo
 
 		if (dTime > bomberman.delayMov) {
+			// se o tempo decorrido for maior que o especificado para o delay
+			// então o personagem pode se mover
 			bombermanMove(nextDir);
 			nextDir = eSTOP;
-			gettimeofday(&bomberman.tic, NULL);
+			gettimeofday(&bomberman.tic, NULL); // recomeça a contagem
 		}
 
 		for (i = 0; i < qtBalloon; i++) {
-			if (!balloon[i].alive) continue;
+			// ignora balões vivos
+			if (!balloon[i].alive)
+				continue;
 
 			gettimeofday(&(balloon[i].tac), NULL);
 			dTime = timeLapsed(balloon[i].tic, balloon[i].tac);
 			if (dTime > balloon[i].delayMov) {
 				balloonMove(&balloon[i]);
+
+				// se o balão foi atingido por uma bomba, ele ira ficar
+				// certo tempo aparecendo na tela
 				if (!balloon[i].dying)
 					gettimeofday(&(balloon[i].tic), NULL);
 			}
@@ -198,6 +212,7 @@ int main(void) {
 				continue;
 
 			if (bomb[i].activated) {
+				// imprime o caractere da bomba na tela
 				mvaddch(bomb[i].line, bomb[i].column, chBOMB);
 
 				gettimeofday(&(bomb[i].tac), NULL);
@@ -218,7 +233,7 @@ int main(void) {
 				gettimeofday(&(bomb[i].tac), NULL);
 				dTime = timeLapsed(bomb[i].tic, bomb[i].tac);
 
-				if (dTime > 1.0 / bomb[i].speedExp) {
+				if (dTime > (1.0 / bomb[i].speedExp)) {
 					bomb[i].currentWaveSize++;
 					startExplosion(&bomb[i]);
 					gettimeofday(&(bomb[i].tic), NULL);
@@ -309,10 +324,14 @@ int main(void) {
 		refresh();
 	}
 
+	if ((bomberman.lives == 0) || exitGame) {
+		updateHighScore();
+		gameOver();
+	}
+	refresh();
 	endwin();
 	return EXIT_SUCCESS;
 }
-
 
 void startScreenSettings(void) {
 
@@ -350,6 +369,18 @@ void startBomberman(void) {
 	bomberman.delayMov = 1.0 / 10;
 }
 
+void startBalloon(int i, int line, int column, direction_t dir) {
+	assert(i < qtBalloon);
+
+	balloon[i].line = line;
+	balloon[i].column = column;
+	balloon[i].dir = dir;
+	balloon[i].alive = true;
+	balloon[i].dying = false;
+	balloon[i].stepsSameDir = 0;
+	balloon[i].delayMov = 1.0 / 6;
+}
+
 void showMap(void) {
 	int chColor, line, column;
 	size_t ch;
@@ -357,55 +388,54 @@ void showMap(void) {
 	for (line = 0; line < ROW; line++)
 		for (column = 0; column < COL; column++) {
 			switch (map[line][column]) {
-				case '|':
+				case '|': // Paredes verticais
 					chColor = WALL_COLOR;
 					ch = ACS_VLINE | A_BOLD;
 					break;
-				case '-':
+				case '-': // Paredes horizontais
 					chColor = WALL_COLOR;
 					ch = ACS_HLINE | A_BOLD;
 					break;
-				case 'A':
+				case 'A': // Canto superior esquerdo
 					chColor = WALL_COLOR;
 					ch = ACS_ULCORNER | A_BOLD;
 					break;
-				case 'B':
+				case 'B': // Canto superior direito
 					chColor = WALL_COLOR;
 					ch = ACS_URCORNER | A_BOLD;
 					break;
-				case 'C':
+				case 'C': // Canto inferior direito
 					chColor = WALL_COLOR;
 					ch = ACS_LRCORNER | A_BOLD;
 					break;
-				case 'D':
+				case 'D': // Canto superior esquerdo
 					chColor = WALL_COLOR;
 					ch = ACS_LLCORNER | A_BOLD;
 					break;
-				case 'X':
+				case 'X': // Muros internos
 					chColor = WALL_COLOR;
 					ch = 'X' | A_BOLD;
-
 					break;
-				case ' ':
+				case ' ': // Espaço vazio
 					chColor = SPACE_COLOR;
 					ch = ' ';
 					break;
-				case '%':
+				case '%': // Caixa destrutiva
 					chColor = BOX_COLOR;
 					ch = '%' | A_BOLD;
 					break;
-				default:
+				default: // Se houver algum erro...
 					getch();
 					endwin();
 					perror("Erro na especificação do mapa.");
 					exit(EXIT_FAILURE);
 			}
 
+			// mostra o caractere na tela
 			mvaddch(line, column, ch | COLOR_PAIR(chColor));
 		}
 	refresh();
 }
-
 
 void balloonMove(balloon_t *balloon) {
 	int stepsCanWalk = 0;
@@ -416,14 +446,14 @@ void balloonMove(balloon_t *balloon) {
 	if (balloon->dying) {
 		gettimeofday(&balloon->tac, NULL);
 
-
-		if (timeLapsed(balloon->tic, balloon->tac) > 2.0) {
+		// apos ser atingido por uma explosão, o balão fica parado por 1 seg.
+		if (timeLapsed(balloon->tic, balloon->tac) > 1.0) {
 			balloon->alive = false;
-
-
+			// ao final deste tempo, insere um espaço na tela
 			mvaddch(balloon->line, balloon->column, chSPACE);
 		}
 		else
+			// inverte as cores do balão, indicando sua morte
 			mvaddch(balloon->line, balloon->column, chBALLOON | A_REVERSE);
 
 		return;
@@ -451,13 +481,17 @@ void balloonMove(balloon_t *balloon) {
 			opoDir = eUP;
 
 
+		// Incrementa em 8 vezes a possibildade de se mover para frente
 		if (FMPDir[balloon->dir])
 			FMPDir[balloon->dir] *= 8;
 
+		// Incrementa em 8 vezes a possibilidade de se movers para tras,
+		// se ja tiver movido mais de 10 vezes consecutivas na mesma direção
 		if (authorizeBalloonMovement(balloon->line, balloon->column, opoDir) &&
 			(balloon->stepsSameDir > 10))
 			FMPDir[opoDir] *= 8;
 
+		// calcula a probabilidade de movimento
 		newDir = (direction_t) probabilityMassFunction(5, FMPDir);
 
 		if (newDir == balloon->dir)
@@ -500,7 +534,6 @@ void balloonMove(balloon_t *balloon) {
 
 	mvaddch(balloon->line, balloon->column, chBALLOON);
 }
-
 
 void bombermanMove(direction_t dir) {
 	int line, column;
@@ -547,6 +580,42 @@ void bombermanMove(direction_t dir) {
 	mvaddch(bomberman.line, bomberman.column, chBOMBERMAN);
 }
 
+bool authorizeBalloonMovement(int line, int column, direction_t dir) {
+
+	switch (dir) {
+		case eSTOP:
+			break;
+		case eRIGHT:
+			if (column < (COL - 1))
+				column++;
+			break;
+		case eUP:
+			if (line > 0)
+				line--;
+			break;
+		case eLEFT:
+			if (column > 0)
+				column--;
+			break;
+		case eDOWN:
+			if (line < (ROW - 1))
+				line++;
+			break;
+	}
+
+	// Balao não é suicida
+	if (mvinch(line, column) == chEXPLOSION)
+		return false;
+
+	// Balao não é suicida
+	if (mvinch(line, column) == chBOMB)
+		return false;
+
+	if (map[line][column] == ' ')
+		return true;
+
+	return false;
+}
 
 bool authorizeBombermanMovement(int line, int column, direction_t dir) {
 
@@ -583,61 +652,13 @@ bool authorizeBombermanMovement(int line, int column, direction_t dir) {
 	return false;
 }
 
-
-bool authorizeBalloonMovement(int line, int column, direction_t dir) {
-
-	switch (dir) {
-		case eSTOP:
-			break;
-		case eRIGHT:
-			if (column < (COL - 1))
-				column++;
-			break;
-		case eUP:
-			if (line > 0)
-				line--;
-			break;
-		case eLEFT:
-			if (column > 0)
-				column--;
-			break;
-		case eDOWN:
-			if (line < (ROW - 1))
-				line++;
-			break;
-	}
-
-	if (mvinch(line, column) == chEXPLOSION)
-		return false;
-
-	if (mvinch(line, column) == chBOMB)
-		return false;
-
-	if (map[line][column] == ' ')
-		return true;
-
-	return false;
-}
-
 double timeLapsed(struct timeval tic, struct timeval tac) {
 	return ((tac.tv_sec - tic.tv_sec) + ((tac.tv_usec - tic.tv_usec) / 1E6));
 }
 
-void startBalloon(int i, int line, int column, direction_t dir) {
-	assert(i < qtBalloon);
-
-	balloon[i].line = line;
-	balloon[i].column = column;
-	balloon[i].dir = dir;
-	balloon[i].alive = true;
-	balloon[i].dying = false;
-	balloon[i].stepsSameDir = 0;
-	balloon[i].delayMov = 1.0 / 6;
-}
-
 int probabilityMassFunction(const int n, const double weight[n]) {
 	int i;
-	double random = ((double) rand()) / RAND_MAX;
+	double random = ((double) rand()) / RAND_MAX; // Retorna um valor de 0 a 1
 	double sumWeight;
 	double acumSumWeight;
 
@@ -655,10 +676,28 @@ int probabilityMassFunction(const int n, const double weight[n]) {
 	return 0;
 }
 
-
 void updateScoreboard(void) {
 	mvprintw(0, 50, "Marcador = %03d", bomberman.score);
 	mvprintw(1, 50, "Vidas    = %3d", bomberman.lives);
+}
+
+void updateHighScore(void) {
+	int score;
+	FILE *fscore = NULL;
+
+	if (!(fscore = fopen("data/score.txt", "a+"))) {
+		fprintf(stderr, "Erro na abertura do arquivo.\n");
+		return;
+	}
+
+	fscanf(fscore, "%d", &score);
+	fclose(fscore);
+
+	if (score < bomberman.score) {
+		fopen("data/score.txt", "w");
+		fprintf(fscore, "%d", score);
+		fclose(fscore);
+	}
 }
 
 void helpBoard(void) {
@@ -668,10 +707,27 @@ void helpBoard(void) {
 	mvprintw(9, 50, "ESC   : Quit");
 }
 
+void gameOver(void) {
+	WINDOW *exitWindow;
+	exitWindow = newwin(7, (28 + 4), ROW / 2 - 3,
+						(COL - 28 - 4) / 2);
+	box(exitWindow, 0, 0);
+	wattron(exitWindow, A_BOLD);
+	mvwprintw(exitWindow, 6, 2, "Fim de Jogo");
+	mvwprintw(exitWindow, 2, 2, "   *** %05d ***   ", bomberman.score);
+	wattroff(exitWindow, A_BOLD);
+	wrefresh(exitWindow);
+	flushinp();
+	getch();
+	delwin(exitWindow);
+	touchwin(stdscr);
+}
+
 void startExplosion(bomb_t *B) {
 	assert(B->currentWaveSize >= 1);
 
-	int t, line, column;
+	int i, t;
+	int line, column;
 	direction_t dir;
 
 	if (B->currentWaveSize == 1) {
@@ -737,8 +793,10 @@ void startExplosion(bomb_t *B) {
 				bomberman.score++;
 			}
 
+			if ((line == bomberman.line) && (column == bomberman.column))
+				bomberman.lives--;
 
-			for (int i = 0; i < qtBalloon; i++)
+			for (i = 0; i < qtBalloon; i++)
 				if ((line == balloon[i].line) &&
 					(column == balloon[i].column) &&
 					balloon[i].alive) {
@@ -752,7 +810,8 @@ void startExplosion(bomb_t *B) {
 void finishExplosion(bomb_t *B) {
 	assert(B->currentWaveSize > 0);
 
-	int t, line, column;
+	int t;
+	int line, column;
 	direction_t dir;
 
 	if (B->currentWaveSize == 1) {
@@ -774,7 +833,6 @@ void finishExplosion(bomb_t *B) {
 			case eRIGHT:
 				if ((column + t) < (COL - 1)) {
 					column += t;
-
 
 					if (mvinch(line, column) == chEXPLOSION)
 						mvaddch(line, column, chSPACE);
@@ -803,4 +861,4 @@ void finishExplosion(bomb_t *B) {
 				break;
 		}
 	}
-} 
+}
