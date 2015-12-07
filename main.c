@@ -441,18 +441,24 @@ void balloonMove(balloon_t *balloon) {
 	newDir = eSTOP;
 	if (stepsCanWalk != 0) {
 		opoDir = eSTOP;
-		if (balloon->dir == eRIGHT) opoDir = eLEFT;
-		else if (balloon->dir == eLEFT) opoDir = eRIGHT;
-		else if (balloon->dir == eUP) opoDir = eDOWN;
-		else if (balloon->dir == eDOWN) opoDir = eUP;
+		if (balloon->dir == eRIGHT)
+			opoDir = eLEFT;
+		else if (balloon->dir == eLEFT)
+			opoDir = eRIGHT;
+		else if (balloon->dir == eUP)
+			opoDir = eDOWN;
+		else if (balloon->dir == eDOWN)
+			opoDir = eUP;
 
 
-		if (FMPDir[balloon->dir]) FMPDir[balloon->dir] *= 8;
+		if (FMPDir[balloon->dir])
+			FMPDir[balloon->dir] *= 8;
+
 		if (authorizeBalloonMovement(balloon->line, balloon->column, opoDir) &&
 			(balloon->stepsSameDir > 10))
 			FMPDir[opoDir] *= 8;
 
-		newDir = probabilityMassFunction(5, FMPDir);
+		newDir = (direction_t) probabilityMassFunction(5, FMPDir);
 
 		if (newDir == balloon->dir)
 			balloon->stepsSameDir++;
@@ -470,16 +476,20 @@ void balloonMove(balloon_t *balloon) {
 		case eSTOP:
 			break;
 		case eRIGHT:
-			if (column < COL - 1) column++;
+			if (column < (COL - 1))
+				column++;
 			break;
 		case eUP:
-			if (line > 0) line--;
+			if (line > 0)
+				line--;
 			break;
 		case eLEFT:
-			if (column > 0) column--;
+			if (column > 0)
+				column--;
 			break;
 		case eDOWN:
-			if (line < ROW - 1) line++;
+			if (line < (ROW - 1))
+				line++;
 			break;
 	}
 
@@ -609,7 +619,7 @@ bool authorizeBalloonMovement(int line, int column, direction_t dir) {
 	return false;
 }
 
-inline double timeLapsed(struct timeval tic, struct timeval tac) {
+double timeLapsed(struct timeval tic, struct timeval tac) {
 	return ((tac.tv_sec - tic.tv_sec) + ((tac.tv_usec - tic.tv_usec) / 1E6));
 }
 
