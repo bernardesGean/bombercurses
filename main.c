@@ -315,6 +315,7 @@ int main(void) {
 				break;
 			}
 			case KEY_ESCAPE:
+				updateScoreboard();
 				exitGame = true;
 				break;
 			default:
@@ -324,10 +325,6 @@ int main(void) {
 		refresh();
 	}
 
-	if ((bomberman.lives == 0) || exitGame) {
-		updateHighScore();
-		gameOver();
-	}
 	refresh();
 	endwin();
 	return EXIT_SUCCESS;
@@ -365,8 +362,8 @@ void startBomberman(void) {
 	bomberman.column = 1;
 	bomberman.score = 0;
 	bomberman.dir = eSTOP;
-	bomberman.lives = 3;
-	bomberman.delayMov = 1.0 / 10;
+	bomberman.lives = 10;
+	bomberman.delayMov = 1.0 / 12;
 }
 
 void startBalloon(int i, int line, int column, direction_t dir) {
@@ -378,7 +375,7 @@ void startBalloon(int i, int line, int column, direction_t dir) {
 	balloon[i].alive = true;
 	balloon[i].dying = false;
 	balloon[i].stepsSameDir = 0;
-	balloon[i].delayMov = 1.0 / 6;
+	balloon[i].delayMov = 1.0 / 3.5;
 }
 
 void showMap(void) {
@@ -528,6 +525,9 @@ void balloonMove(balloon_t *balloon) {
 	}
 
 	mvaddch(balloon->line, balloon->column, chSPACE);
+
+	if(mvinch(line, column) == chBOMBERMAN)
+		bomberman.lives--;
 
 	balloon->column = column;
 	balloon->line = line;
@@ -705,22 +705,6 @@ void helpBoard(void) {
 	mvprintw(7, 50, "SPACE : Bomba");
 	mvprintw(8, 50, "P     : Pause");
 	mvprintw(9, 50, "ESC   : Quit");
-}
-
-void gameOver(void) {
-	WINDOW *exitWindow;
-	exitWindow = newwin(7, (28 + 4), ROW / 2 - 3,
-						(COL - 28 - 4) / 2);
-	box(exitWindow, 0, 0);
-	wattron(exitWindow, A_BOLD);
-	mvwprintw(exitWindow, 6, 2, "Fim de Jogo");
-	mvwprintw(exitWindow, 2, 2, "   *** %05d ***   ", bomberman.score);
-	wattroff(exitWindow, A_BOLD);
-	wrefresh(exitWindow);
-	flushinp();
-	getch();
-	delwin(exitWindow);
-	touchwin(stdscr);
 }
 
 void startExplosion(bomb_t *B) {
