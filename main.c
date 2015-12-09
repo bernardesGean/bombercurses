@@ -315,7 +315,6 @@ int main(void) {
 				break;
 			}
 			case KEY_ESCAPE:
-				updateScoreboard();
 				exitGame = true;
 				break;
 			default:
@@ -325,6 +324,7 @@ int main(void) {
 		refresh();
 	}
 
+	updateHighScore();
 	refresh();
 	endwin();
 	return EXIT_SUCCESS;
@@ -682,22 +682,15 @@ void updateScoreboard(void) {
 }
 
 void updateHighScore(void) {
-	int score;
 	FILE *fscore = NULL;
-
-	if (!(fscore = fopen("data/score.txt", "a+"))) {
-		fprintf(stderr, "Erro na abertura do arquivo.\n");
-		return;
+	
+	if (!(fscore = fopen("data/score.txt", "w")))
+	{
+		fprintf(stderr, "Erro na criação do arquivo.");
+		exit(0);
 	}
-
-	fscanf(fscore, "%d", &score);
+	fprintf(fscore, "%d\n", bomberman.score);
 	fclose(fscore);
-
-	if (score < bomberman.score) {
-		fopen("data/score.txt", "w");
-		fprintf(fscore, "%d", score);
-		fclose(fscore);
-	}
 }
 
 void helpBoard(void) {
