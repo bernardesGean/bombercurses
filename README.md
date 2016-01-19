@@ -42,4 +42,4 @@ Compilação
 
 ## Autor
 
-[Geancarlo Bernardes](https://github.com/bernardesGean/bombercurses)
+[Geancarlo Bernardes](https://github.com/bernardesGean)
